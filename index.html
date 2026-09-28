@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#101a2a" />
+    <!-- 本地工具不做 PWA：无 manifest / SW 注册；icon 直接引用 public/ 静态文件 -->
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>电子立牌 · 本地管理</title>
+    <script>
+      // 主题防闪烁：先读缓存的主题偏好设 <html class>，避免首屏闪白/闪黑。
+      // 与 lib/theme.tsx 同 key（lipai-theme）；auto = 跟随系统，不写 class。
+      ;(function () {
+        try {
+          var v = localStorage.getItem('lipai-theme')
+          var dark =
+            v === 'dark' ||
+            ((v === null || v === 'auto' || v === '') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {
+          /* 隐私模式忽略 */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <!-- React 根（main.tsx createRoot） -->
+    <div id="root"></div>
+    <!-- 弹层挂载点（Modal/Menu 等 Portal 脱离父级层叠上下文） -->
+    <div id="portals"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

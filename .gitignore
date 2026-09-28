@@ -1,0 +1,11 @@
+dist/
+node_modules/
+.vite/
+coverage/
+.DS_Store
+
+release/
+# 本地开发工具配置(IDE/编辑器私有)
+.fe.env
+.weavelynx.json
+.diff-review/

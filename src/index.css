@@ -1,0 +1,812 @@
+@import "tailwindcss";
+
+/* 电子立牌 全局样式（Tailwind v4）
+   主题：手动切换 light / dark（<html class="dark">），存 localStorage `lipai-theme`；
+   未选过时跟随系统（脚本在 <head> 里设初始 class，避免闪烁）。
+
+   ── 调性：精密仪器暗调（dark-first）──
+   示波器 / 航电面板的气质：分层暗度（surface-0/1/2 + well 内凹读数区），
+   电青 signal = 唯一主强调（选中 / 链接 / 进行中），
+   琥珀 glow = 唯一辅色（辉光管遗产：logo / 徽标 / 「屏上」态），
+   电子立牌 NixieTube 是视觉主角。暗色是设计主档（token 先按 dark 调，再映射 light）。
+
+   ── 用色铁律 ──
+   组件里禁止新增裸 hex / 裸 rgba / 新的 zinc-* 用途；
+   一切颜色走语义层：surface / well / line / signal / glow + 语义状态色
+   （ok=emerald, warn=glow-500, danger=red, idle=zinc-400）。
+   dark 是主档但 light 是一等公民：语义变量天然双主题，已有 lipai-theme 键不动。 */
+
+/* 手动 class 驱动的 dark 变体（替代默认的 prefers-color-scheme 媒体查询） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── 语义表面（随 .dark 翻转；@theme 引用后生成 bg-surface-1 等工具类） ── */
+:root {
+  --surface-0: #eef1f6;              /* 页面底（第 0 层，body 渐变在其上） */
+  --surface-1: rgba(255, 255, 255, 0.78); /* 卡片玻璃（62% 在弱 backdrop 环境透字，见 DeviceMenu/TabBar） */
+  --surface-2: rgba(255, 255, 255, 0.8);  /* 悬浮面板 / 弹层 */
+  --well: #e6eaf2;                   /* 内凹读数区：通信日志 / 循环运行 / LCD */
+  --line: rgba(15, 23, 42, 0.12);    /* 发丝线 1px */
+  --line-strong: rgba(15, 23, 42, 0.22);
+  /* 液态玻璃材质令牌（Liquid Glass 分级配方，见 glass-* 工具类） */
+  --glass-blur: 12px;        /* 面板霜深 · 第 2 级（Safari/Firefox）= hyalite blur 6 */
+  --glass-blur-chrome: 20px; /* 顶栏/底栏：内容从下方滚过，霜淡一档 */
+  --glass-sat: 1.8;
+  --glass-hi: rgba(255, 255, 255, 0.75); /* 顶镜边内高光 */
+  --glass-lo: rgba(15, 23, 42, 0.06);    /* 底沿内阴影 */
+  --glass-solid: #f4f6f9;    /* 第 3 级实底（无 backdrop-filter / 降透明度偏好） */
+}
+.dark {
+  --surface-0: #101012;
+  --surface-1: rgba(30, 30, 34, 0.78);
+  --surface-2: rgba(38, 38, 43, 0.72);
+  --well: #0b0b0d;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --glass-hi: rgba(255, 255, 255, 0.14);
+  --glass-lo: rgba(0, 0, 0, 0.28);
+  --glass-solid: #17171a;
+}
+
+@theme {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-well: var(--well);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* 强调两系（纯黑白灰方案）：token 名保留（全站 76 处引用零逐处改），
+     色值整体换灰阶 —— signal 电青退役 → zinc 冷灰（选中/链接/进行中），
+     glow 琥珀退役 → stone 暖灰（徽标/「屏上」/警告）。
+     深浅档位对齐原亮度：700 深选字 → zinc-800，200 深色模式选字 → zinc-200。
+     彩色只存在于 logo 管内（SVG 产品写实）。 */
+  --color-signal-100: #f4f4f5;   /* 选中片镜边内高光（浅色） */
+  --color-signal-200: #e4e4e7;   /* 选中文字（深色模式） */
+  --color-signal-300: #d4d4d8;   /* 主强调亮档：深色模式链接 / 进行中 */
+  --color-signal-400: #a1a1aa;
+  --color-signal-500: #71717a;
+  --color-signal-600: #52525b;   /* focus 环 / 边框（浅色） */
+  --color-signal-700: #3f3f46;   /* 选中文字 / 边框（浅色模式） */
+  --color-glow-300: #e7e5e4;     /* 辅色亮档（原琥珀）：徽标 / 「屏上」 */
+  --color-glow-400: #d6d3d1;
+  --color-glow-500: #a8a29e;
+  --color-glow-600: #78716c;
+
+  /* 字体（此前全站无字体声明，落在 Tailwind preflight 默认栈） */
+  --font-sans: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", monospace;
+
+  /* 圆角 / 阴影 / 动效 */
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+  --shadow-panel: 0 10px 30px -12px rgb(15 23 42 / 0.16);
+  --shadow-raised: 0 18px 50px -12px rgb(0 0 0 / 0.45);
+  --ease-instrument: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root {
+  --duration-fast: 150ms;
+  --duration-slow: 250ms;
+}
+
+html {
+  color-scheme: light;
+  /* 移动端应用感：去掉长按系统菜单高亮 / 点击半透明闪灰 */
+  -webkit-tap-highlight-color: transparent;
+  /* 锚点滚动不被 sticky 顶栏盖住（base 4rem + 状态栏 inset —— inset 合法为 0，
+     黑.translucent 下从不出错；apple-web-app skill：bar 高 = base + inset） */
+  scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+  /* iOS Safari 冷启动 100dvh 可能先报错值再跳 —— overscroll 收敛 */
+  overscroll-behavior-y: contain;
+}
+html.dark {
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* 触屏：双击缩放交给系统捏合（不锁 viewport），可点元素用 manipulation 消 300ms 延迟；
+ * 只作用于 chrome 控件，正文选择保留（apple-web-app skill：别 ship user-scalable=no） */
+button,
+summary,
+a,
+label,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+  user-select: none;
+}
+input,
+textarea {
+  user-select: text;
+}
+
+/* 触屏反馈：不用 hover 就有「按下」的手感；
+   弹性按压（liquid-glass-react 的 directional scale 语义）——
+   按压时横向多收一点（0.96 vs 纵向 0.97），镜片「被指腹压扁」的观感 */
+@media (hover: none) {
+  .btn-primary:active:not(:disabled),
+  .btn-ghost:active:not(:disabled),
+  .btn-danger:active:not(:disabled) {
+    transform: scale(0.96, 0.97);
+  }
+}
+
+/* reduced-motion 全局闸门：动画 / 过渡压到近零（logo 呼吸、StatusDot ping、
+ * IconLoader 自旋、SW 条滑入等一律被覆盖；JS 驱动的帧切换不受影响） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── RangeSlider（ui/RangeSlider.tsx）原生 range 换肤 ──
+   thumb 12px 圆点 + hover 放大 1.2；轨道透明（填充轨由组件内的 span 画）。 */
+.range-slider-input {
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-signal-600);
+    transition: transform 0.25s ease-in-out;
+  }
+  &:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+  }
+  &::-moz-range-thumb {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-signal-600);
+    transition: transform 0.25s ease-in-out;
+  }
+  &:hover::-moz-range-thumb {
+    transform: scale(1.2);
+  }
+}
+
+/* ── Transition（ui/Transition.tsx）切换动画 ──
+   交叉淡入淡出：新内容原位入场，旧内容绝对定位垫底退出（无空窗帧）。
+   入场靠「挂载帧无 is-entered 类 → rAF 后补类」双态驱动（比 @starting-style 兼容面稳）。
+   reduced-motion 闸门会把 duration 压到 0.01ms —— 退出层立即消失，等于无动画。 */
+.transition-item {
+  transition: opacity var(--duration-slow) var(--ease-instrument),
+    transform var(--duration-slow) var(--ease-instrument);
+}
+.transition-item--leaving {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+/* 入场起点（挂载帧）：淡入 + 轻移；rAF 补 is-entered 后浮上来 */
+.transition-item:not(.is-entered) {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.transition-item.is-entered {
+  opacity: 1;
+  transform: none;
+}
+/* 退出层永远停在淡出终点（它自带 --leaving 的 opacity:0，不参与双态） */
+
+html {
+  /* 底色兜底：body 渐变在 ::before 固定层上，回弹/过滚动露出的画布同色 */
+  background-color: var(--surface-0);
+}
+
+body {
+  @apply text-zinc-900 antialiased dark:text-zinc-100;
+  font-family: var(--font-sans);
+  /* 深浅切换过渡（文字色柔和过渡，避免生硬跳变） */
+  transition: color 0.25s ease;
+}
+
+/* 液态底渐变（玻璃需要丰富的背景来折射）放在 body::before 固定层：
+   iOS Safari 不支持 background-attachment: fixed（渐变随文档滚动，
+   玻璃顶栏的 backdrop 每帧变化 = 模糊抖动/发黑）；viewport 尺寸的
+   fixed 伪元素 = 滚动时恒定的折射背景，各端材质一致。 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* 浅色：带冷暖渐变的液态底 */
+  background:
+    radial-gradient(56rem 30rem at 88% -8rem, rgba(251, 191, 36, 0.1), transparent 62%),
+    radial-gradient(70rem 36rem at -12rem 22%, rgba(56, 189, 248, 0.13), transparent 65%),
+    radial-gradient(52rem 30rem at 108% 78%, rgba(129, 140, 248, 0.1), transparent 62%),
+    linear-gradient(180deg, #f4f6f9 0%, var(--surface-0) 100%);
+}
+
+/* 深色：暖灰渐变底（带一点暖棕的黑），避免纯黑的死寂 */
+.dark body::before {
+  background:
+    radial-gradient(60rem 30rem at 88% -10rem, rgba(56, 189, 248, 0.07), transparent 62%),
+    radial-gradient(55rem 30rem at -10rem 30%, rgba(99, 102, 241, 0.06), transparent 60%),
+    linear-gradient(180deg, #17171a 0%, #131315 40%, var(--surface-0) 100%);
+}
+
+/* ── 液态玻璃（对齐 Apple Liquid Glass 的 Web 标准实现）──
+   材质四要素：透镜折射（Chromium：hyalite SVG 位移图）/ 镜边高光（顶 1px 内高光）/
+   自适应衬底（surface-1 78% 承担可读性 —— 62% 在弱 backdrop 环境透字）/ 边缘响应（glass-reactive 的 hover 辉光）。
+   降级阶梯 —— 跨浏览器同材质，只有折射掉档：
+     1 Chromium        --hyalite 真实折射（blur 6 ≈ CSS 12px，霜深与第 2 级对齐）
+     2 Safari/Firefox  blur(var(--glass-blur)) saturate(var(--glass-sat))
+     3 无 backdrop-filter / 降透明度偏好  --glass-solid 实底（见下方两块）
+   反模式（Apple HIG + a11y 共识，禁止回潮）：
+   玻璃不叠玻璃（嵌套小件用 glass-chip 去模糊）；内容区不上玻璃（用 card-flat）；
+   blur ≤ 40px 是上限不是目标（chrome 20px / 面板 12px）；
+   玻璃只给导航/控制层与浮层（弹层/对话框/吐司），一处视图至多一张主玻璃。 */
+@utility glass {
+  position: relative;
+  border: 1px solid var(--line);
+  background-color: var(--surface-1);
+  /* hyalite 液态玻璃：Chromium 下 Hyalite 挂载后 --hyalite 生效（真实折射，
+     见 public/vendor/hyalite.js + src/lib/hyalite.ts）；其余浏览器回落 CSS blur。 */
+  backdrop-filter: var(--hyalite, blur(var(--glass-blur)) saturate(var(--glass-sat)));
+  -webkit-backdrop-filter: var(--hyalite, blur(var(--glass-blur)) saturate(var(--glass-sat)));
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    0 10px 30px -12px rgb(15 23 42 / 0.16);
+  @variant dark {
+    box-shadow:
+      inset 0 1px 0 var(--glass-hi),
+      inset 0 -1px 0 var(--glass-lo),
+      0 12px 32px -12px rgb(0 0 0 / 0.55);
+  }
+}
+
+/* 顶栏/底栏玻璃：内容从下方滚过，霜淡一档（20px）并加入折射阶梯。
+   不设 border / position —— 调用方用 border-b/border-t border-line 自定边位。 */
+@utility glass-chrome {
+  background-color: var(--surface-1);
+  backdrop-filter: var(--hyalite, blur(var(--glass-blur-chrome)) saturate(1.6));
+  -webkit-backdrop-filter: var(--hyalite, blur(var(--glass-blur-chrome)) saturate(1.6));
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 8px 24px -12px rgb(15 23 42 / 0.15);
+  @variant dark {
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  }
+}
+
+/* 玻璃上的控制件（徽标 / 按钮底）：去模糊 —— 玻璃不叠玻璃（Apple 头号禁忌）。
+   surface-2 80% 底足够实，读作「浮起的小件」；叠在别的玻璃上零合成成本。 */
+@utility glass-chip {
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface-2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.75);
+  @variant dark {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+}
+
+/* 直接浮在内容上（不叠玻璃）的小件才允许的轻霜：半径 ≤12px 时 hyalite
+   的 bevel 16 被钳住、折射不可见 —— 不值得建位移图，CSS 12px 足矣。 */
+@utility glass-chip-float {
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+}
+
+/* ── 分段控件材质（kube.io 精髓在 ≤12px 半径上的 CSS 表达）──
+   控件半径小于 hyalite bevel 16 → 位移折射被钳住不可见；
+   液态玻璃的「厚度感」改由三层物理暗示承担：内凹槽（光从上打进来槽底暗）、
+   浮起镜片（顶镜边受光 + 底部落影）、按压形变（active:scale）。
+   玻璃不叠玻璃：镜片是近实底镜面，不带 backdrop-filter。 */
+
+/* 轨道（v3 调）：内凹玻璃槽 —— 底色压暗一档（surface-1 之上再混 well 压暗），
+   镜片的白才有对比。此前 surface-2 80% 白轨道 vs 92% 白镜片 —— 选中不可辨的另一半根源。 */
+@utility glass-track {
+  border: 1px solid var(--line);
+  background-color: color-mix(in oklab, var(--surface-1) 62%, var(--well));
+  box-shadow:
+    inset 0 1px 2px rgb(15 23 42 / 0.08),
+    inset 0 -1px 0 rgb(255 255 255 / 0.35);
+  @variant dark {
+    box-shadow:
+      inset 0 1px 2px rgb(0 0 0 / 0.4),
+      inset 0 -1px 0 rgb(255 255 255 / 0.04);
+  }
+}
+
+/* 选择片（v3 重做）：白镜片 + 发丝边框 + 双层落影。
+   此前无 border 声明 —— 浅色下轨道 80% 白 vs 镜片 92% 白，选中几乎不可辨。
+   现在发丝 --line-strong 边勾轮廓，选中一眼可辨；文字着 signal 指示色。 */
+@utility glass-thumb {
+  border: 1px solid var(--line-strong);
+  background-color: rgb(255 255 255 / 0.94);
+  color: var(--color-zinc-800);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 -1px 0 rgb(15 23 42 / 0.06),
+    0 1px 2px rgb(15 23 42 / 0.16),
+    0 4px 10px -4px rgb(15 23 42 / 0.22);
+  @variant dark {
+    border-color: color-mix(in oklab, var(--color-signal-400) 45%, transparent);
+    background-color: rgb(255 255 255 / 0.14);
+    color: var(--color-zinc-100);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.24),
+      inset 0 -1px 0 rgb(0 0 0 / 0.3),
+      0 1px 2px rgb(0 0 0 / 0.45),
+      0 4px 10px -4px rgb(0 0 0 / 0.55);
+  }
+}
+
+/* 玻璃的边缘响应（liquid glass 的交互行为）：hover 镜边提亮 + signal 边缘辉光 +
+   浮起；focus 环浅色 signal-600 / 深色 signal-300（玻璃上青色对比 ≥3:1 的坑）。
+   加 glass-spotlight 时，镜边高光还跟着指针走（见下方 glass-spotlight）。 */
+@utility glass-reactive {
+  transition:
+    box-shadow var(--duration-fast) var(--ease-instrument),
+    background-color var(--duration-fast) var(--ease-instrument);
+  &:hover {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 -1px 0 var(--glass-lo),
+      0 0 0 1px rgb(15 23 42 / 0.14),
+      0 12px 36px -12px rgb(15 23 42 / 0.22);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-signal-600);
+    outline-offset: 2px;
+  }
+  @variant dark {
+    &:hover {
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.22),
+        inset 0 -1px 0 var(--glass-lo),
+        0 0 0 1px rgb(255 255 255 / 0.14),
+        0 12px 36px -12px rgb(0 0 0 / 0.5);
+    }
+    &:focus-visible {
+      outline-color: var(--color-signal-300);
+    }
+  }
+}
+
+/* 跟光镜边高光（liquid-glass-react 的 border-gradient-follows-mouse 技法，
+   纯 CSS 移植）：指针位置写进 --mx/--my（pointermove 时更新，见 spotlight.ts），
+   这层伪元素把它转成一条角度随光走的镜边高光 —— Apple 说的
+   「specular highlight responds to device motion and touch」。
+   实现选择：border 渐变不能转任意角度 → 用 inset box-shadow 承载光晕，
+   背景用 radial-gradient 在指针处打一束光。触屏（hover:none）下退化为顶光。 */
+@utility glass-spotlight {
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity var(--duration-slow) var(--ease-instrument);
+    /* 光晕中心跟着指针；常驻（不透明度渐起）不逐帧重绘布局 */
+    background:
+      radial-gradient(
+        8rem 8rem at var(--mx, 50%) var(--my, 0%),
+        rgb(255 255 255 / 0.18),
+        transparent 60%
+      );
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+  }
+  &:hover::before {
+    opacity: 1;
+  }
+  @variant dark {
+    &::before {
+      background:
+        radial-gradient(
+          8rem 8rem at var(--mx, 50%) var(--my, 0%),
+          rgb(255 255 255 / 0.1),
+          transparent 60%
+        );
+    }
+  }
+}
+/* 触屏没有指针：跟光高光退化为常亮顶光（radial 默认 --my:0% 在顶沿） */
+@media (hover: none) {
+  .glass-spotlight::before {
+    opacity: 1;
+  }
+}
+
+/* 第 3 级降级：无 backdrop-filter 的老浏览器给实底（前缀路径仍尽力给霜）；
+   降透明度偏好：实底 + 关模糊（与 hyalite.ts 的 JS 侧门禁成对）。 */
+@supports not (backdrop-filter: blur(4px)) {
+  .glass,
+  .card,
+  .glass-chrome {
+    background-color: var(--glass-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .card,
+  .glass-chrome,
+  .glass-chip-float {
+    background-color: var(--glass-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* 玻璃卡片的液态渐变覆层：顶部冷光 + 底部暖光斜切，放在卡片内容下层（z-0） */
+@utility glass-tint {
+  background:
+    linear-gradient(160deg, rgba(56, 189, 248, 0.1) 0%, transparent 40%),
+    linear-gradient(340deg, rgba(251, 191, 36, 0.07) 0%, transparent 45%);
+  @variant dark {
+    background:
+      linear-gradient(160deg, rgba(56, 189, 248, 0.09) 0%, transparent 42%),
+      linear-gradient(340deg, rgba(99, 102, 241, 0.09) 0%, transparent 48%);
+  }
+}
+
+/* ── 仪器语言复合类 ── */
+
+/* 读数：等宽数字（设备信息 / 亮度 / 轮数 / 下载数 / 日志 / 时钟） */
+@utility readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* 微标签：极细大写刻度（替代散落的 text-xs font-bold tracking-widest text-zinc-400）。
+   玻璃上 zinc-500 临界（混色区会跌破 4.5:1）—— 玻璃面板一档加深，深色一档提亮。 */
+@utility micro-label {
+  font-size: 0.625rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-zinc-600);
+  @variant dark {
+    color: var(--color-zinc-400);
+  }
+}
+
+/* 唯一选中态（v3 重做）：白镜片 + 发丝 signal 边 + 双层落影。
+   「电青染底」被否（浅色下发蓝发灰、像一滩水渍）—— 青退到指示位：
+   边框发丝线 + 文字着色 + 落影带一点点青。选中靠「这片玻璃抬起来了」：
+   白底对比轨道的灰底、发丝边勾出轮廓、落影钉在下面。
+   用法约定：宿主常驻 border border-transparent（选中换实色边，盒尺寸恒定零位移）。 */
+@utility chip-on {
+  background-color: rgb(255 255 255 / 0.94);
+  color: var(--color-signal-700);
+  border-color: color-mix(in oklab, var(--color-signal-600) 42%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 -1px 0 rgb(15 23 42 / 0.06),
+    0 1px 2px rgb(15 23 42 / 0.16),
+    0 4px 12px -4px rgb(15 23 42 / 0.24);
+}
+.dark .chip-on {
+  background-color: rgb(255 255 255 / 0.14);
+  color: var(--color-signal-200);
+  border-color: color-mix(in oklab, var(--color-signal-400) 45%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    inset 0 -1px 0 rgb(0 0 0 / 0.3),
+    0 1px 2px rgb(0 0 0 / 0.45),
+    0 4px 12px -4px rgb(0 0 0 / 0.55);
+}
+
+/* 设备展台：物理设备是黑的，两种主题下本体保持暗（写实）——
+   收编三份近重复的硬编码暗台渐变（曾散在 LiveRail / Home / Upload） */
+@utility stage {
+  background:
+    radial-gradient(85% 42% at 50% 0%, rgba(125, 211, 252, 0.12), transparent 70%),
+    radial-gradient(75% 38% at 82% 100%, rgba(251, 146, 60, 0.09), transparent 70%),
+    linear-gradient(168deg, #3b3944 0%, #34323d 34%, #2d2b34 62%, #232128 100%);
+}
+
+/* 展台外框：--line 边 + 落影，把暗台「挂」进浅色版面（解决浅色下浮黑突兀） */
+@utility stage-frame {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 12px 32px -14px rgb(0 0 0 / 0.55);
+}
+
+/* 品牌渐变文字：彩虹斜向过渡（青 → 蓝 → 紫 → 粉 → 琥珀，暗色提亮一档）——
+   全站标题强调的统一语言（Home hero / NavBar logo 文案）。
+   彩色只用在品牌文字与 logo 管：是「辉光管点亮」的语言，正文一律灰阶。 */
+@utility text-brand-gradient {
+  background-image: linear-gradient(
+    120deg,
+    #22d3ee,
+    #3b82f6 25%,
+    #8b5cf6 50%,
+    #ec4899 75%,
+    #f59e0b
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  .dark & {
+    background-image: linear-gradient(
+      120deg,
+      #67e8f9,
+      #60a5fa 25%,
+      #a78bfa 50%,
+      #f472b6 75%,
+      #fbbf24
+    );
+  }
+}
+
+/* logo 辉光管呼吸（轻微亮度起伏，模拟灯管点亮） */
+@keyframes logo-tube-glow {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.logo-tube {
+  animation: logo-tube-glow 2.6s ease-in-out infinite;
+}
+
+/* 站点氛围层：顶部辉光（暖金 + 青蓝两束，模拟屏幕光照进展厅） */
+.ambient-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 22rem at 18% -10rem, rgba(251, 191, 36, 0.06), transparent 60%),
+    radial-gradient(70rem 26rem at 82% -12rem, rgba(56, 189, 248, 0.08), transparent 60%),
+    radial-gradient(90rem 30rem at 50% -8rem, rgba(56, 189, 248, 0.05), transparent 65%);
+}
+
+.dark .ambient-glow {
+  background:
+    radial-gradient(60rem 22rem at 18% -10rem, rgba(251, 191, 36, 0.05), transparent 60%),
+    radial-gradient(70rem 26rem at 82% -12rem, rgba(56, 189, 248, 0.07), transparent 60%),
+    radial-gradient(90rem 32rem at 50% -6rem, rgba(99, 102, 241, 0.05), transparent 65%);
+}
+
+/* ── 按钮 ──
+   尺寸档：btn-sm min-h-9 / 默认 min-h-11；触控地板：主操作 44px、次级 36px。 */
+
+/* 自包含主按钮：亮青渐变镜片（sky→cyan）—— 液态玻璃的「厚镜片」：
+   顶面受光（inset 顶高光）→ 侧面收光（inset 底深沿）→ 底部落影（贴地 + 漫射）。
+   hover 抬起（translateY -1px + 落影加深外扩）；active 按进槽里
+   （落影收到贴地 = 镜片压回槽底，物理按压语义）。 */
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background-image: none;
+  background-color: #1d1d1f;
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -1px 0 rgb(0 0 0 / 0.45),
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 6px 16px -6px rgb(0 0 0 / 0.45);
+  transition:
+    color var(--duration-fast) var(--ease-instrument),
+    background-color var(--duration-fast) var(--ease-instrument),
+    border-color var(--duration-fast) var(--ease-instrument),
+    box-shadow var(--duration-fast) var(--ease-instrument),
+    transform var(--duration-fast) var(--ease-instrument);
+  cursor: pointer;
+  /* 键盘可达性：focus 可见环（浅色一档加深保 ≥3:1 —— 玻璃上青色对白的坑） */
+  &:focus-visible {
+    outline: 2px solid var(--color-signal-600);
+    outline-offset: 2px;
+  }
+  &:hover {
+    background-color: #2c2c2e;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(8, 51, 68, 0.24),
+      0 2px 4px rgb(0 0 0 / 0.28),
+      0 10px 24px -6px rgb(0 0 0 / 0.5);
+    transform: translateY(-1px);
+  }
+  &:active {
+    background-color: #131315;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 -1px 0 rgba(8, 51, 68, 0.32),
+      0 1px 2px rgba(8, 51, 68, 0.24);
+    transform: translateY(0);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    transform: none;
+  }
+}
+
+@utility btn-sm {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.875rem;
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+}
+
+/* 次级按钮：玻璃描边镜片（常驻于任意表面）—— 与 primary 同一套物理语言：
+   顶受光 / 底收光 / 落影贴地漫射；hover 抬起落影外扩，active 压回槽底。
+   材质 = glass-chip 同源（surface-2 80% 底）——不带 backdrop-filter：
+   玻璃不叠玻璃（btn-ghost 大量落在玻璃面板上，嵌套模糊是 Apple 头号禁忌）。 */
+@utility btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface-2);
+  color: var(--color-zinc-700);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.75),
+    inset 0 -1px 0 rgb(15 23 42 / 0.05),
+    0 1px 2px rgb(15 23 42 / 0.1),
+    0 5px 12px -6px rgb(15 23 42 / 0.2);
+  transition:
+    color var(--duration-fast) var(--ease-instrument),
+    background-color var(--duration-fast) var(--ease-instrument),
+    border-color var(--duration-fast) var(--ease-instrument),
+    box-shadow var(--duration-fast) var(--ease-instrument),
+    transform var(--duration-fast) var(--ease-instrument);
+  &:focus-visible {
+    outline: 2px solid var(--color-signal-600);
+    outline-offset: 2px;
+  }
+  &:hover {
+    background-color: color-mix(in oklab, var(--surface-2) 70%, white);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.8),
+      inset 0 -1px 0 rgb(15 23 42 / 0.04),
+      0 2px 4px rgb(15 23 42 / 0.1),
+      0 8px 20px -6px rgb(15 23 42 / 0.24);
+    transform: translateY(-1px);
+  }
+  &:active {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.6),
+      inset 0 -1px 0 rgb(15 23 42 / 0.06),
+      0 1px 2px rgb(15 23 42 / 0.14);
+    transform: translateY(0);
+  }
+  @variant dark {
+    color: var(--color-zinc-300);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 5px 12px -6px rgb(0 0 0 / 0.5);
+    &:focus-visible {
+      outline-color: var(--color-signal-300);
+    }
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.12);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.14),
+        0 2px 4px rgb(0 0 0 / 0.4),
+        0 8px 20px -6px rgb(0 0 0 / 0.6);
+      transform: translateY(-1px);
+    }
+    &:active {
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.08),
+        0 1px 2px rgb(0 0 0 / 0.5);
+    }
+  }
+}
+
+/* 危险按钮：破坏性确认对話框的确认钮（红边红字，hover 红底） */
+@utility btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--color-red-500) 55%, transparent);
+  background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
+  color: var(--color-red-600);
+  transition:
+    color var(--duration-fast) var(--ease-instrument),
+    background-color var(--duration-fast) var(--ease-instrument),
+    border-color var(--duration-fast) var(--ease-instrument),
+    box-shadow var(--duration-fast) var(--ease-instrument);
+  &:focus-visible {
+    outline: 2px solid var(--color-red-500);
+    outline-offset: 2px;
+  }
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-red-500) 22%, transparent);
+  }
+  @variant dark {
+    color: var(--color-red-400);
+    &:focus-visible {
+      outline-color: var(--color-red-400);
+    }
+    &:hover {
+      background-color: color-mix(in oklab, var(--color-red-500) 26%, transparent);
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply glass rounded-[var(--radius-card)];
+  }
+  /* 无模糊卡：列表行 / 长内容区（性能铁律——backdrop 只给常驻件） */
+  .card-flat {
+    @apply rounded-[var(--radius-card)] border border-line bg-surface-1;
+    box-shadow: var(--shadow-panel);
+  }
+  /* 输入框：内凹「刻进去」而不是浮起 —— 顶沿内阴影收光 + 底沿 1px 受光，
+     与玻璃面板的浮起方向相反（输入是挖坑，控件是凸起）；绝不给玻璃面板上的输入框加模糊。 */
+  .input {
+    @apply w-full rounded-[var(--radius-control)] border border-line bg-surface-2 px-3 py-2 text-sm text-zinc-900 outline-none
+      placeholder:text-zinc-400 focus:border-signal-600 focus:ring-2 focus:ring-signal-500/25
+      dark:text-zinc-100 dark:focus:border-signal-300 dark:focus:ring-signal-400/20;
+    box-shadow:
+      inset 0 1px 2px rgb(15 23 42 / 0.08),
+      inset 0 -1px 0 rgb(255 255 255 / 0.45);
+  }
+  .dark .input {
+    box-shadow:
+      inset 0 1px 2px rgb(0 0 0 / 0.4),
+      inset 0 -1px 0 rgb(255 255 255 / 0.06);
+  }
+  /* chip 几何 + 尺寸档（此前无变体是 66 处 !important 的根因） */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 text-xs font-medium;
+    min-height: 2.25rem;
+  }
+  .chip-sm {
+    @apply px-2.5 text-xs;
+    min-height: 2.25rem;
+  }
+  .chip-xs {
+    @apply gap-1 px-2 text-[11px];
+    min-height: 1.75rem;
+  }
+  .chip-md {
+    @apply px-3 text-sm;
+    min-height: 2.5rem;
+  }
+}

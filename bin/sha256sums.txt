@@ -1,0 +1,9 @@
+# ble-bridge 原生二进制 sha256 清单(Rust/btleplug,本仓库 rust/ble-bridge/ 编出)。
+# 来源:rust/ble-bridge/ crate(cargo build --release,三平台产物按 <triple> 命名放入本目录;
+#   Windows x86_64-pc-windows-msvc.exe / macOS aarch64|x86_64-apple-darwin / Linux x86_64-unknown-linux-gnu)。
+# 校验:shasum -a 256 -c sha256sums.txt;扩展运行时 spawn 前亦按本清单核对
+#   (binary-runtime.ts verifyBinarySha256),不匹配拒绝执行。
+# 重新生成:替换二进制后跑 bun scripts/bin-sums.ts。
+e0ac51715eaf11fc12d9e961685dd7224db201902c9a7ef4f8c2a29b9a5d99f0  ble-bridge-aarch64-apple-darwin
+2d7923cb7cf2066cd001f374019a82c8d6e6d342b9326f65830db554c353d6d4  ble-bridge-x86_64-apple-darwin
+74864d884f01b3d8a14c6175e521545cd26dc396cf8e02772fd298adb84e4bfe  ble-bridge-x86_64-pc-windows-msvc.exe
